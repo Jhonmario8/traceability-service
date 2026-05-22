@@ -29,13 +29,14 @@ public class OrderTraceabilityHandler implements IOrderTraceabilityHandler {
         return orderTraceabilityServicePort.findAllByEmployeeId(employeeId).stream().map(mapper::toDTO).toList() ;
     }
 
-    @Override
-    public Integer findAverageTimeByEmployeeId(Long employeeId) {
-        return orderTraceabilityServicePort.findAverageTimeByEmployeeId(employeeId);
-    }
 
     @Override
     public OrderTraceabilityDTO findByOrderId(Long orderId) {
         return mapper.toDTO(orderTraceabilityServicePort.findById(orderId));
+    }
+
+    @Override
+    public Double findAverageTimeByEmployeeIdInMinutes(Long employeeId) {
+        return orderTraceabilityServicePort.findAverageTimeByEmployeeIdInMinutes(employeeId);
     }
 }

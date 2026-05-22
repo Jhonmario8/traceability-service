@@ -38,14 +38,25 @@ public class OrderTraceabilityUseCase implements IOrderTraceabilityServicePort {
         return orderTraceabilityPersistencePort.findAllByEmployeeId(employeeId);
     }
 
-    @Override
-    public Integer findAverageTimeByEmployeeId(Long employeeId) {
-        return orderTraceabilityPersistencePort.findAverageTimeByEmployeeId(employeeId);
-    }
 
     @Override
     public OrderTraceability findById(Long id) {
         return orderTraceabilityPersistencePort.findById(id)
                 .orElseThrow(() -> new NotFoundException(ApplicationConstants.ORDER_NOT_FOUND));
+    }
+
+    @Override
+    public Double findAverageTimeByEmployeeIdInMinutes(Long employeeId) {
+
+        List<OrderTraceability> traceabilities = orderTraceabilityPersistencePort.findAllByEmployeeId(employeeId);
+        if (traceabilities.isEmpty()) {
+            return 0.0;
+        }
+        double totalDuration = traceabilities.stream()
+                .filter(t -> t.getTotalDurationInMinutes() != null)
+                .mapToDouble(OrderTraceability::getTotalDurationInMinutes)
+                .sum();
+        return totalDuration / traceabilities.size();
+
     }
 }

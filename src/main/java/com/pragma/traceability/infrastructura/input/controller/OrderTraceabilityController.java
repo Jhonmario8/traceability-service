@@ -30,13 +30,14 @@ public class OrderTraceabilityController {
         return orderTraceabilityHandler.findAllByEmployeeId(employeeId);
     }
 
-    @GetMapping("/employee/{employeeId}/media")
-    public Integer findAverageTimeByEmployeeId(@PathVariable Long employeeId){
-        return orderTraceabilityHandler.findAverageTimeByEmployeeId(employeeId);
-    }
 
     @GetMapping("/{orderId}")
     public OrderTraceabilityDTO findByOrderId(@PathVariable Long orderId){
         return orderTraceabilityHandler.findByOrderId(orderId) ;
+    }
+
+    @GetMapping("/owner/{employeeId}/media")
+    public Double findAverageTimeByEmployeeIdInMinutes(@PathVariable Long employeeId){
+        return orderTraceabilityHandler.findAverageTimeByEmployeeIdInMinutes(employeeId);
     }
 }

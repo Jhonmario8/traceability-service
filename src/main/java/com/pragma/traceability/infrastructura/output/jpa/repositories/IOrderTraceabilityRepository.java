@@ -9,9 +9,7 @@ import java.util.Optional;
 
 
 public interface IOrderTraceabilityRepository extends MongoRepository<OrderTraceabilityDocument, Long> {
-
     List<OrderTraceabilityDocument> findAllByClientId(Long clientId);
     List<OrderTraceabilityDocument> findAllByEmployeeId(Long employeeId);
-    Integer findAverageTimeByEmployeeId (Long employeeId);
-    List<OrderTraceabilityDocument> findAllByOrderId(Long orderId);
+    Optional<OrderTraceabilityDocument> findTopByOrderIdOrderByIdDesc(Long orderId);
 }

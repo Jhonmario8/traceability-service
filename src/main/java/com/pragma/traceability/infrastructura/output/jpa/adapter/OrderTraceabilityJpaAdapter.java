@@ -34,16 +34,10 @@ public class OrderTraceabilityJpaAdapter implements IOrderTraceabilityPersistenc
                 .map(mapper::toDomain).toList();
     }
 
-    @Override
-    public Integer findAverageTimeByEmployeeId(Long employeeId) {
-        return repository.findAverageTimeByEmployeeId(employeeId);
-    }
 
     @Override
     public Optional<OrderTraceability> findById(Long id) {
-        return repository.findAllByOrderId(id).stream()
-                .findFirst()
-                .map(mapper::toDomain);
+        return repository.findTopByOrderIdOrderByIdDesc(id).map(mapper::toDomain);
     }
 
 
