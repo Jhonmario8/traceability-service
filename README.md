@@ -1,77 +1,124 @@
-# 📊 Traceability Service
+# Traceability Service
 
-Microservicio dedicado a la trazabilidad y auditoría de los pedidos, desarrollado en Java 17 y Spring Boot 3.
+Microservicio de trazabilidad del proyecto Reto Pragma (plazoleta de comidas). Guarda en MongoDB un registro por cada cambio de estado de un pedido, calcula la duración de los pedidos que terminan y expone el tiempo promedio por empleado. `plazoleta-service` lo llama por OpenFeign para registrar y consultar la trazabilidad.
 
-Este componente del ecosistema administra el historial de estados de las órdenes utilizando una base de datos NoSQL (**MongoDB**) para optimizar la escritura rápida de logs y la consulta de documentos. Permite registrar cambios, consultar la línea de tiempo por cliente y analizar métricas de eficiencia (tiempos promedios de gestión) por empleado.
+Repositorio: [Jhonmario8/traceability-service](https://github.com/Jhonmario8/traceability-service). En el repositorio raíz [Reto-Pragma](https://github.com/Jhonmario8/Reto-Pragma) está incluido como submódulo `tracebility`.
 
-## Tabla de Contenidos
+## Tabla de contenidos
 
-- [Descripción](#descripción)
-- [Características Principales](#características-principales)
-- [Modelo de Datos (MongoDB)](#modelo-de-datos-mongodb)
-- [Arquitectura del Proyecto](#arquitectura-del-proyecto)
-- [Configuración Inicial](#configuración-inicial)
-- [Dependencias Principales](#dependencias-principales)
-- [Ejecución y Pruebas](#ejecución-y-pruebas)
-- [Autor](#autor)
+- [Tecnologías](#tecnologías)
+- [Modelo de datos](#modelo-de-datos)
+- [Endpoints](#endpoints)
+- [Cálculo de tiempos](#cálculo-de-tiempos)
+- [Arquitectura](#arquitectura)
+- [Configuración](#configuración)
+- [Ejecución en local con MongoDB](#ejecución-en-local-con-mongodb)
+- [Tests](#tests)
+- [Limitaciones conocidas](#limitaciones-conocidas)
 
----
+## Tecnologías
 
-## Descripción
+- Java 17, Spring Boot 4.0.6 (WebMVC, Security, Data MongoDB, Validation)
+- MongoDB
+- JWT con `io.jsonwebtoken` 0.11.5 (solo valida tokens emitidos por `user-service`)
+- MapStruct 1.5.5 y Lombok
+- Gradle 9.4.1 (wrapper incluido)
+- JUnit 5, Mockito y AssertJ
 
-El microservicio de Trazabilidad actúa como una bitácora inmutable (log) del sistema. Cada vez que un pedido cambia de estado en la Plazoleta, este servicio recibe y almacena la información estructurada. Además, procesa estos datos para calcular la duración exacta de cada pedido y generar rankings de eficiencia del personal (chefs), mejorando la toma de decisiones del propietario del restaurante.
+A diferencia de los demás servicios, este usa Spring Boot 4.
 
-## Características Principales
+## Modelo de datos
 
-- **Registro Histórico:** Almacenamiento del ciclo de vida de un pedido dentro de un único documento NoSQL.
-- **Cálculo de Tiempos:** Registro automático del tiempo de inicio (`startTime`), fin (`endTime`) y duración total en minutos de cada pedido.
-- **Métricas de Eficiencia:** Generación de un ranking de empleados basado en su tiempo promedio de preparación.
-- **Consultas por Actor:** Filtros de trazabilidad específicos para clientes (sus propios pedidos) y empleados.
-- **Seguridad JWT:** Protección de endpoints mediante la validación de tokens provistos por el microservicio de Usuarios.
+Colección `order_traceability`. Cada documento representa un cambio de estado de un pedido:
 
-## Modelo de Datos (MongoDB)
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `id` | String (ObjectId) | Generado por MongoDB. |
+| `orderId` | Long | Pedido en `plazoleta-service`. |
+| `clientId` | Long | Cliente del pedido. |
+| `employeeId` | Long | Empleado asignado (puede ser nulo mientras el pedido está en PENDING). |
+| `previousState` | String | Estado anterior. |
+| `newState` | String | Estado nuevo. |
+| `startTime` | LocalDateTime | Inicio del pedido. |
+| `endTime` | LocalDateTime | Fin del pedido (entregado o cancelado). |
+| `totalDurationInMinutes` | Long | Se calcula al guardar si hay `startTime` y `endTime`. |
 
-Al utilizar MongoDB, la entidad principal (`OrderTraceability`) se mapea como un `@Document` en lugar de una tabla relacional. Su estructura optimizada incluye:
+## Endpoints
 
-- `id`: Identificador autogenerado (ObjectId hexadecimal).
-- `orderId`, `clientId`, `employeeId`: Referencias cruzadas a otros microservicios.
-- `currentState`: Estado actual de la orden.
-- `startTime` / `endTime`: Marcas de tiempo de los hitos principales.
-- `totalDurationInMinutes`: Cálculo en caché de la duración total para consultas eficientes.
-- `history`: Arreglo (Sub-documentos) con el historial detallado de estados y sus respectivas fechas.
+Todos requieren `Authorization: Bearer <token>`.
 
-## Arquitectura del Proyecto
+| Método | Ruta | Rol | Descripción |
+|---|---|---|---|
+| POST | `/traceability/` | Autenticado | Guarda un registro de trazabilidad. |
+| GET | `/traceability/{orderId}` | Autenticado | Devuelve el registro más reciente del pedido; 404 si no existe. |
+| GET | `/traceability/client/{clientId}` | CLIENT | Lista los registros de un cliente. |
+| GET | `/traceability/employee/{employeeId}` | EMPLOYEE | Lista los registros de un empleado. |
+| GET | `/traceability/owner/{employeeId}/media` | OWNER | Tiempo promedio en minutos de los pedidos de un empleado. |
 
-El proyecto sigue los principios de la **Arquitectura Hexagonal (Clean Architecture)**:
+## Cálculo de tiempos
 
-- **Domain:** Modelos de dominio puros e interfaces (Puertos).
-- **Application:** Casos de uso (UseCases) y orquestación de la lógica de trazabilidad y cálculos de fechas.
-- **Infrastructure:** Adaptadores de entrada (Controladores REST), adaptadores de salida (`MongoRepository`) y configuraciones de seguridad.
+- Al guardar un registro con `endTime`, `totalDurationInMinutes` se calcula como los minutos completos entre `startTime` y `endTime`. Si falta alguna de las dos fechas, queda en `null`.
+- El promedio por empleado suma `totalDurationInMinutes` de los registros que la tienen y divide entre el total de registros del empleado. Si el empleado no tiene registros, devuelve `0.0` sin dividir por cero.
 
-## Configuración Inicial
+## Arquitectura
 
-1. Tener instalado **JDK 17**.
-2. Clonar el repositorio.
-3. Asegurarse de tener una instancia de **MongoDB** en ejecución en el puerto `27017` (local o en contenedor Docker).
+Arquitectura hexagonal bajo `src/main/java/com/pragma/traceability/`:
 
-### Variables de Entorno
+```
+domain/          Modelo OrderTraceability, puertos api/spi y excepciones
+application/     Caso de uso OrderTraceabilityUseCase, handler, DTO y mapper
+infrastructura/  Controlador REST, adaptador y repositorio de MongoDB, seguridad JWT y manejo de errores
+```
 
-Configurar la siguiente variable de entorno en el sistema o IDE antes de ejecutar:
-- `PRAGMA_JWT_KEY`: Clave secreta para la validación de firmas JWT (debe ser idéntica a la de los otros microservicios).
+El paquete de infraestructura se llama `infrastructura` y el adaptador de MongoDB está bajo `output/jpa`, aunque no usa JPA. Son nombres heredados que no se han cambiado.
 
-### Configuración del Servidor (`application.yml`)
+## Configuración
 
-El servicio se despliega en el puerto `8083`. La configuración base en `src/main/resources/application.yml` es la siguiente:
+`src/main/resources/application.yml`:
 
-```yaml
-server:
-  port: 8083
+| Propiedad | Valor | Descripción |
+|---|---|---|
+| `server.port` | `8083` | Puerto HTTP. |
+| `spring.mongodb.uri` | `mongodb://localhost:27017/traceability` | Conexión a MongoDB. En Spring Boot 4 la propiedad es `spring.mongodb.*`, no `spring.data.mongodb.*`. |
+| `spring.security.jwt.secret` | `${PRAGMA_JWT_KEY}` | Clave para validar los JWT. Debe ser la misma que usa `user-service`. |
 
-spring:
-  data:
-    mongodb:
-      uri: mongodb://localhost:27017/bd_trazabilidad
-      
-  security:
-    jwt:
-      secret: ${PRAGMA_JWT_KEY}
+Variable de entorno obligatoria: `PRAGMA_JWT_KEY`.
+
+## Ejecución en local con MongoDB
+
+Requisitos: JDK 17 y MongoDB en `localhost:27017`. La base `traceability` y la colección se crean con el primer registro.
+
+Con Docker:
+
+```bash
+docker run -d --name mongo-traceability -p 27017:27017 mongo:7
+```
+
+Luego:
+
+```bash
+export PRAGMA_JWT_KEY=<misma_clave_que_user-service>
+./gradlew bootRun
+```
+
+El servicio queda en `http://localhost:8083`.
+
+## Tests
+
+```bash
+./gradlew test
+```
+
+Son tests unitarios con JUnit 5 y Mockito. No levantan Spring ni se conectan a MongoDB, así que `./gradlew build` pasa sin MongoDB ni variables de entorno.
+
+| Clase | Qué cubre |
+|---|---|
+| `OrderTraceabilityUseCaseTest` | Registro de inicio (sin duración) y de fin (duración en minutos), promedio con varios registros, con uno y sin registros, búsqueda por pedido (encontrado y no encontrado) y listados por cliente y empleado. |
+| `OrderTraceabilityTest` | Cálculo de minutos entre dos fechas y casos con fechas nulas. |
+
+## Limitaciones conocidas
+
+- Cada cambio de estado se guarda como un documento nuevo y solo el último (entregado o cancelado) tiene duración. Como el promedio divide entre todos los documentos del empleado, sale menor que el tiempo real. Además, los pedidos cancelados cuentan en el promedio.
+- No se valida que `endTime` sea posterior a `startTime`, así que la duración puede ser negativa.
+- El repositorio declara `MongoRepository<OrderTraceabilityDocument, Long>`, pero el `@Id` del documento es `String`.
+- El controlador no usa `@Valid`, así que las anotaciones `@NotNull` del DTO no se aplican. Si se aplicaran, el registro inicial que envía `plazoleta-service` (sin `employeeId`) sería rechazado.
