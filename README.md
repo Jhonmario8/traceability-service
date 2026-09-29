@@ -14,7 +14,7 @@ Repositorio: [Jhonmario8/traceability-service](https://github.com/Jhonmario8/tra
 - [Configuración](#configuración)
 - [Ejecución en local con MongoDB](#ejecución-en-local-con-mongodb)
 - [Tests](#tests)
-- [Limitaciones conocidas](#limitaciones-conocidas)
+- [Deuda técnica conocida](#deuda-técnica-conocida)
 
 ## Tecnologías
 
@@ -116,7 +116,9 @@ Son tests unitarios con JUnit 5 y Mockito. No levantan Spring ni se conectan a M
 | `OrderTraceabilityUseCaseTest` | Registro de inicio (sin duración) y de fin (duración en minutos), promedio con varios registros, con uno y sin registros, búsqueda por pedido (encontrado y no encontrado) y listados por cliente y empleado. |
 | `OrderTraceabilityTest` | Cálculo de minutos entre dos fechas y casos con fechas nulas. |
 
-## Limitaciones conocidas
+## Deuda técnica conocida
+
+Hallazgos de las rondas de tests que todavía no se han corregido:
 
 - Cada cambio de estado se guarda como un documento nuevo y solo el último (entregado o cancelado) tiene duración. Como el promedio divide entre todos los documentos del empleado, sale menor que el tiempo real. Además, los pedidos cancelados cuentan en el promedio.
 - No se valida que `endTime` sea posterior a `startTime`, así que la duración puede ser negativa.
